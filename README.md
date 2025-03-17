@@ -1,4 +1,4 @@
-# Personal Finance Tracker System
+# Personal Finance Tracker REST API (Application Frameworks Module _ Assignment 01 (SLIIT SE))
 
 ## Overview
 
