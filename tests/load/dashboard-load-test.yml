@@ -1,0 +1,98 @@
+config:
+  target: "http://localhost:5000"
+  phases:
+    - duration: 60
+      arrivalRate: 5
+      name: "Warm up phase"
+    - duration: 120
+      arrivalRate: 10
+      rampTo: 20
+      name: "Ramp up load"
+    - duration: 300
+      arrivalRate: 20
+      name: "Sustained load"
+  processor: "./load-test-functions.js"
+
+scenarios:
+  - name: "Dashboard access - authenticated users"
+    weight: 7
+    flow:
+      - function: "generateUserCredentials"
+      - post:
+          url: "/api/auth/login"
+          json:
+            username: "{{ username }}"
+            password: "{{ password }}"
+          capture:
+            - json: "$.token"
+              as: "userToken"
+      - get:
+          url: "/api/dashboard/user"
+          headers:
+            Authorization: "Bearer {{ userToken }}"
+          expect:
+            - statusCode: 200
+            - contentType: json
+            - hasProperty: recentTransactions
+            - hasProperty: budgetSummary
+            - hasProperty: goals
+            - hasProperty: monthlyFinancials
+
+  - name: "Dashboard access - admin users"
+    weight: 3
+    flow:
+      - function: "generateAdminCredentials"
+      - post:
+          url: "/api/auth/login"
+          json:
+            username: "{{ username }}"
+            password: "{{ password }}"
+          capture:
+            - json: "$.token"
+              as: "adminToken"
+      - get:
+          url: "/api/dashboard/admin"
+          headers:
+            Authorization: "Bearer {{ adminToken }}"
+          expect:
+            - statusCode: 200
+            - contentType: json
+            - hasProperty: userStats
+            - hasProperty: activityStats
+            - hasProperty: financialSummary
+            - hasProperty: recentActivity
+      - get:
+          url: "/api/dashboard/user"
+          headers:
+            Authorization: "Bearer {{ adminToken }}"
+          expect:
+            - statusCode: 200
+            - contentType: json
+            - hasProperty: recentTransactions
+
+  - name: "Unauthorized access attempts"
+    weight: 2
+    flow:
+      - get:
+          url: "/api/dashboard/user"
+          expect:
+            - statusCode: 401
+      - get:
+          url: "/api/dashboard/admin"
+          expect:
+            - statusCode: 401
+      - function: "generateUserCredentials"
+      - post:
+          url: "/api/auth/login"
+          json:
+            username: "{{ username }}"
+            password: "{{ password }}"
+          capture:
+            - json: "$.token"
+              as: "userToken"
+      - get:
+          url: "/api/dashboard/admin"
+          headers:
+            Authorization: "Bearer {{ userToken }}"
+          expect:
+            - statusCode: 403
